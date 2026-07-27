@@ -18,14 +18,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # -----------------------------
+      # Checkout Repository
+      # -----------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # -----------------------------
+      # Secret Scanning (Gitleaks)
+      # -----------------------------
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # -----------------------------
+      # Static Application Security Testing (Semgrep CE)
+      # -----------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Semgrep
+        run: |
+          python -m pip install --upgrade pip
+          pip install semgrep
+
+      - name: Run Semgrep Scan
+        run: |
+          semgrep scan --config auto app/
+
+      # -----------------------------
+      # Login to GitHub Container Registry
+      # -----------------------------
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -33,6 +59,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # -----------------------------
+      # Extract Docker Metadata
+      # -----------------------------
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -41,10 +70,14 @@ jobs:
           tags: |
             type=sha
 
+      # -----------------------------
+      # Build and Push Docker Image
+      # -----------------------------
       - name: Build and Push
         uses: docker/build-push-action@v6
         with:
           context: ./app
           file: ./app/Dockerfile
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
