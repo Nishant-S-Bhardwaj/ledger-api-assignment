@@ -1,0 +1,99 @@
+# ledger-api itself makes zero Kubernetes API calls, so it intentionally has
+# NO Role or RoleBinding bound to its own ServiceAccount — the strongest form
+# of least privilege is "nothing to bind," not "a narrowly scoped Role."
+#
+# What follows are the three HUMAN personas the assignment asks for
+# (developer / operator / admin), scoped to the payments namespace only.
+# Replace the placeholder "subjects" (Group names) with your real IdP groups
+# or specific usernames before applying.
+
+---
+# --- Developer: read-only visibility, no secrets, no write access ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ledger-developer
+  namespace: payments
+rules:
+  - apiGroups: ["", "apps"]
+    resources: ["pods", "services", "configmaps", "deployments", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+    # Deliberately no "secrets" resource here — developers can see that a
+    # Secret exists via the Deployment's envFrom, but can't read its values.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ledger-developer-binding
+  namespace: payments
+subjects:
+  - kind: Group
+    name: "payments-developers"   # TODO: replace with real IdP group / user
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: ledger-developer
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# --- Operator: developer permissions + ability to roll out/restart/scale,
+#     plus read access to the ONE named secret (for verifying it's correctly
+#     mounted during an incident), not blanket secret access ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ledger-operator
+  namespace: payments
+rules:
+  - apiGroups: ["", "apps"]
+    resources: ["pods", "services", "configmaps", "deployments", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["patch", "update"]        # rollout restart / rollback
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["delete"]                 # restart via pod deletion
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+    resourceNames: ["ledger-api-secrets"]   # scoped to exactly one named Secret
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ledger-operator-binding
+  namespace: payments
+subjects:
+  - kind: Group
+    name: "payments-operators"    # TODO: replace with real IdP group / user
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: ledger-operator
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# --- Admin: full control, but bound via a namespaced RoleBinding to the
+#     BUILT-IN "admin" ClusterRole — this grants full admin rights WITHIN
+#     payments only, not cluster-wide. Using the built-in role instead of a
+#     hand-rolled one avoids drift from upstream RBAC verb coverage. ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ledger-admin-binding
+  namespace: payments
+subjects:
+  - kind: Group
+    name: "payments-admins"       # TODO: replace with real IdP group / user
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: admin                     # built-in aggregated ClusterRole
+  apiGroup: rbac.authorization.k8s.io

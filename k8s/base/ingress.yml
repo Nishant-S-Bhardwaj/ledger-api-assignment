@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ledger-api
+  namespace: payments
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # Local kind/k3d cluster, HTTP only — deliberate scope boundary, not an
+    # oversight. Production would terminate TLS via cert-manager (cert-manager
+    # annotation + Certificate resource) or, once Task 3's mesh is live, via
+    # the Istio Ingress Gateway instead of this nginx Ingress entirely.
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: ledger-api.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ledger-api
+                port:
+                  number: 8080

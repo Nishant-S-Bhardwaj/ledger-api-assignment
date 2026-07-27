@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+# No "images:" transformer for now — the real GHCR image (ghcr.io/nishant-s-bhardwaj/ledger-api:v1)
+# is hardcoded directly in base/deployment.yml. When Task 2's CI pipeline starts producing
+# git-SHA tags automatically, THIS is the seam where we'll re-add an images: block to have
+# ArgoCD/kustomize patch the tag per-deploy instead of editing base/deployment.yml by hand.

@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ledger-api
+  namespace: payments
+  labels:
+    app: ledger-api
+    app.kubernetes.io/name: ledger-api
+    app.kubernetes.io/part-of: dodo-payments
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 3
+  revisionHistoryLimit: 3        # keep last 3 ReplicaSets for rollback, not unlimited history
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1                # one extra pod during rollout, keeps latency stable
+      maxUnavailable: 0          # never drop below desired replica count — zero-downtime deploys
+  selector:
+    matchLabels:
+      app: ledger-api
+  template:
+    metadata:
+      labels:
+        app: ledger-api
+        app.kubernetes.io/name: ledger-api
+    spec:
+      serviceAccountName: ledger-api
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ledger-api
+          # Name+tag are both placeholders; the dev overlay's kustomize
+          # "images" transformer rewrites both to a real, immutable
+          # GHCR ref + git-SHA tag. Never :latest — also enforced by
+          # the Kyverno policy in the next step, so this is defense
+          # in depth even if someone bypasses kustomize.
+          image: ghcr.io/nishant-s-bhardwaj/ledger-api:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: ledger-api-config
+            - secretRef:
+                name: ledger-api-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

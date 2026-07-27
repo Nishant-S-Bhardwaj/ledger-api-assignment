@@ -1,0 +1,46 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-signed-images
+  annotations:
+    policies.kyverno.io/title: Verify Image Signatures (Cosign Keyless)
+    policies.kyverno.io/category: Software Supply Chain
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      Requires container images to carry a valid keyless Cosign
+      signature issued via GitHub Actions OIDC. Deliberately set to
+      Audit for Task 1 — ledger-api:v1 was pushed manually and is NOT
+      yet signed. Task 2's CI pipeline signs the image with Cosign
+      keyless, at which point this policy is switched to Enforce.
+spec:
+  validationFailureAction: Audit   # TODO(Task 2): flip to "Enforce" once CI signs every build
+  background: false
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail
+  rules:
+    - name: verify-ghcr-image-signature
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kube-node-lease
+                - kube-public
+                - local-path-storage
+                - kyverno
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/nishant-s-bhardwaj/ledger-api:*"
+          mutateDigest: false
+          attestors:
+            - entries:
+                - keyless:
+                    subject: "https://github.com/nishant-s-bhardwaj/ledger-api-assignment/.github/workflows/*"
+                    issuer: "https://token.actions.githubusercontent.com"
+                    rekor:
+                      url: https://rekor.sigstore.dev

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: payments
+  labels:
+    pci-scope: "true"        # marks this namespace as PCI DSS cardholder-data-adjacent
+                              # referenced later in Task 3's CDE-boundary writeup
+
+    # Pod Security Standards, enforced natively by the API server (no separate
+    # controller needed). "enforce" rejects any pod that violates the Restricted
+    # profile at admission time; "audit"/"warn" surface violations without blocking,
+    # useful while iterating. This is the assignment's bonus item, satisfied for free
+    # by three labels — no extra tooling required beyond the built-in admission plugin.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
