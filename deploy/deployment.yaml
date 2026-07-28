@@ -24,7 +24,7 @@ spec:
 
       containers:
         - name: ledger-api
-          image: ghcr.io/nishant-s-bhardwaj/ledger-api:v1
+          image: ghcr.io/nishant-s-bhardwaj/ledger-api@sha256:ab9158c47fded820c27429253ab4f1b88412394b05fe49e47ced9580396d4d68
           imagePullPolicy: Always
 
           securityContext:
