@@ -110,3 +110,25 @@ jobs:
           COSIGN_EXPERIMENTAL: "1"
         run: |
           cosign sign --yes ${{ steps.meta.outputs.tags }}
+      
+            # -----------------------------
+      # Install Syft
+      # -----------------------------
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0
+
+            # -----------------------------
+      # Generate SBOM
+      # -----------------------------
+      - name: Generate SBOM
+        run: |
+          syft ${{ steps.meta.outputs.tags }} -o spdx-json=sbom.spdx.json
+
+            # -----------------------------
+      # Upload SBOM
+      # -----------------------------
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.spdx.json
