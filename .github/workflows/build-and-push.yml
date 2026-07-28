@@ -9,6 +9,7 @@ permissions:
   contents: read
   packages: write
   id-token: write
+  attestations: write
 
 env:
   REGISTRY: ghcr.io
@@ -75,6 +76,7 @@ jobs:
       # Build and Push Docker Image
       # -----------------------------
       - name: Build and Push
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: ./app
@@ -83,7 +85,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-              # -----------------------------
+      # -----------------------------
       # Scan Docker Image with Trivy
       # -----------------------------
       - name: Run Trivy Image Scan
@@ -93,38 +95,49 @@ jobs:
           format: table
           exit-code: 0
           ignore-unfixed: true
-          vuln-type: "os,library"
+          vuln-type: os,library
           severity: HIGH,CRITICAL
 
-              # -----------------------------
-          # Install Cosign
-          # -----------------------------
+      # -----------------------------
+      # Install Cosign
+      # -----------------------------
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
 
-            # -----------------------------
-      # Sign Docker Image
+      # -----------------------------
+      # Sign Docker Image (Keyless)
       # -----------------------------
       - name: Sign Container Image
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: |
-          cosign sign --yes ${{ steps.meta.outputs.tags }}
-      
-            # -----------------------------
+          cosign sign --yes \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+
+      # -----------------------------
+      # Generate SLSA Build Provenance
+      # -----------------------------
+      - name: Generate Build Provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      # -----------------------------
       # Install Syft
       # -----------------------------
       - name: Install Syft
         uses: anchore/sbom-action/download-syft@v0
 
-            # -----------------------------
+      # -----------------------------
       # Generate SBOM
       # -----------------------------
       - name: Generate SBOM
         run: |
           syft ${{ steps.meta.outputs.tags }} -o spdx-json=sbom.spdx.json
 
-            # -----------------------------
+      # -----------------------------
       # Upload SBOM
       # -----------------------------
       - name: Upload SBOM
