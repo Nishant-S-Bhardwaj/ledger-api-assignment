@@ -1,20 +1,26 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
+
 metadata:
   name: ledger-api
   namespace: argocd
+
 spec:
-  project: default
+  project: ledger-api
+
   source:
-    repoURL: https://github.com/Nishant-S-Bhardwaj/ledger-api-assignment.git
+    repoURL: https://github.com/Nishant-S-Bhardaj/ledger-api-assignment
     targetRevision: main
-    path: k8s/overlays/dev
+    path: k8s/base
+
   destination:
     server: https://kubernetes.default.svc
-    namespace: payments        # matches the README: "Deployed on Kubernetes in the payments namespace"
+    namespace: payments
+
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
+
     syncOptions:
       - CreateNamespace=true

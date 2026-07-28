@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: ledger-api
+  namespace: argocd
+
+spec:
+  description: Ledger API GitOps Project
+
+  sourceRepos:
+    - https://github.com/Nishant-S-Bhardwaj/ledger-api-assignment
+
+  destinations:
+    - namespace: payments
+      server: https://kubernetes.default.svc
+
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
